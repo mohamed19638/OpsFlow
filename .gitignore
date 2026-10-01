@@ -1,0 +1,19 @@
+# Build outputs
+**/bin/
+**/obj/
+
+# IDE files
+.vs/
+.idea/
+*.user
+*.suo
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+
+# OS files
+Thumbs.db
+Desktop.ini

@@ -1,10 +1,12 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using StackExchange.Redis;
 using OpsFlow.Application.Interfaces;
 using OpsFlow.Application.Settings;
 using OpsFlow.Domain.Interfaces;
 using OpsFlow.Infrastructure.Auth;
+using OpsFlow.Infrastructure.Caching;
 using OpsFlow.Infrastructure.Data;
 using OpsFlow.Infrastructure.Repositories;
 
@@ -20,6 +22,17 @@ public static class DependencyInjection
 
         services.AddDbContext<OpsFlowDbContext>(options =>
             options.UseNpgsql(connectionString));
+
+        var redisConnectionString = config["Redis:ConnectionString"] ?? "localhost:6379";
+        services.AddStackExchangeRedisCache(options =>
+            options.Configuration = redisConnectionString);
+        services.AddSingleton<IConnectionMultiplexer>(_ =>
+        {
+            var redisOptions = ConfigurationOptions.Parse(redisConnectionString);
+            redisOptions.AbortOnConnectFail = false;
+            return ConnectionMultiplexer.Connect(redisOptions);
+        });
+        services.AddScoped<ICacheService, RedisCacheService>();
 
         services.Configure<JwtSettings>(config.GetSection("JwtSettings"));
 

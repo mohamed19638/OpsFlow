@@ -1,4 +1,5 @@
 using OpsFlow.Application.DTOs.Service;
+using OpsFlow.Application.Constants;
 using OpsFlow.Application.Interfaces;
 using OpsFlow.Application.Mapping;
 using OpsFlow.Domain.Enums;
@@ -9,24 +10,36 @@ namespace OpsFlow.Application.Services;
 public class ServiceManagementService : IServiceService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICacheService _cache;
 
-    public ServiceManagementService(IUnitOfWork unitOfWork)
+    public ServiceManagementService(IUnitOfWork unitOfWork, ICacheService cache)
     {
         _unitOfWork = unitOfWork;
+        _cache = cache;
     }
 
     public async Task<IReadOnlyList<ServiceDto>> GetByOrganizationAsync(
         Guid organizationId,
         CancellationToken cancellationToken = default)
     {
+        var cacheKey = CacheKeys.ServicesByOrganization(organizationId);
+        var cachedServices = await _cache.GetAsync<List<ServiceDto>>(cacheKey, cancellationToken);
+        if (cachedServices is not null)
+        {
+            return cachedServices;
+        }
+
         var services = await _unitOfWork.Services
             .GetByOrganizationAsync(
                 organizationId,
                 cancellationToken);
 
-        return services
+        var result = services
             .Select(service => service.ToDto())
             .ToList();
+
+        await _cache.SetAsync(cacheKey, result, cancellationToken: cancellationToken);
+        return result;
     }
 
     public async Task<ServiceDto?> GetByIdAsync(
@@ -82,6 +95,10 @@ public class ServiceManagementService : IServiceService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        await _cache.RemoveAsync(
+            CacheKeys.ServicesByOrganization(organizationId),
+            cancellationToken);
+
         return service.ToDto();
     }
 
@@ -131,6 +148,10 @@ public class ServiceManagementService : IServiceService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        await _cache.RemoveAsync(
+            CacheKeys.ServicesByOrganization(service.OrganizationId),
+            cancellationToken);
+
         return service.ToDto();
     }
 
@@ -149,6 +170,10 @@ public class ServiceManagementService : IServiceService
         _unitOfWork.Services.Delete(service);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await _cache.RemoveAsync(
+            CacheKeys.ServicesByOrganization(service.OrganizationId),
+            cancellationToken);
 
         return true;
     }
@@ -180,6 +205,10 @@ public class ServiceManagementService : IServiceService
         _unitOfWork.Services.Update(service);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await _cache.RemoveAsync(
+            CacheKeys.ServicesByOrganization(service.OrganizationId),
+            cancellationToken);
 
         return service.ToDto();
     }

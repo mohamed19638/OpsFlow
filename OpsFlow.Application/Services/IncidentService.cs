@@ -1,6 +1,7 @@
 using OpsFlow.Application.DTOs.Incident;
 using OpsFlow.Application.Interfaces;
 using OpsFlow.Application.Mapping;
+using OpsFlow.Application.Messaging;
 using OpsFlow.Domain.Entities;
 using OpsFlow.Domain.Enums;
 using OpsFlow.Domain.Helpers;
@@ -12,11 +13,13 @@ public class IncidentService : IIncidentService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogService _auditLogService;
+    private readonly IMessagePublisher _messagePublisher;
 
-    public IncidentService(IUnitOfWork unitOfWork, IAuditLogService auditLogService)
+    public IncidentService(IUnitOfWork unitOfWork, IAuditLogService auditLogService, IMessagePublisher messagePublisher)
     {
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
+        _messagePublisher = messagePublisher;
     }
 
     public async Task<IReadOnlyList<IncidentDto>> GetByOrganizationAsync(
@@ -84,6 +87,8 @@ public class IncidentService : IIncidentService
         AddEvent(incident, actorUserId, IncidentEventType.Created, "Incident created", null, IncidentStatus.Detected.ToString(), now);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         await LogAuditAsync(incident, actorUserId, "IncidentCreated", $"Incident '{incident.Title}' was created.", cancellationToken);
+        await _messagePublisher.PublishAsync("incidents.created", new IncidentCreatedMessage(
+            Guid.NewGuid(), incident.Id, organizationId, incident.Title, incident.Severity.ToString(), service.Name), cancellationToken);
         return incident.ToDto();
     }
 
@@ -106,6 +111,8 @@ public class IncidentService : IIncidentService
         var now = DateTime.UtcNow;
         AddEvent(incident, actorUserId, IncidentEventType.StatusChange, $"Status changed from {oldStatus} to {newStatus}.", oldStatus.ToString(), newStatus.ToString(), now);
         await SaveAndLogAsync(incident, actorUserId, "IncidentStatusChanged", $"Status: {oldStatus} -> {newStatus}.", cancellationToken);
+        await _messagePublisher.PublishAsync("incidents.status_changed", new IncidentStatusChangedMessage(
+            Guid.NewGuid(), incident.Id, organizationId, oldStatus.ToString(), newStatus.ToString()), cancellationToken);
         return incident.ToDto();
     }
 

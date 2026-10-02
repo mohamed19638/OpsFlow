@@ -8,6 +8,7 @@ using OpsFlow.Domain.Interfaces;
 using OpsFlow.Infrastructure.Auth;
 using OpsFlow.Infrastructure.Caching;
 using OpsFlow.Infrastructure.Data;
+using OpsFlow.Infrastructure.Messaging;
 using OpsFlow.Infrastructure.Repositories;
 
 namespace OpsFlow.Infrastructure;
@@ -35,6 +36,8 @@ public static class DependencyInjection
         services.AddScoped<ICacheService, RedisCacheService>();
 
         services.Configure<JwtSettings>(config.GetSection("JwtSettings"));
+        services.Configure<RabbitMqSettings>(config.GetSection("RabbitMq"));
+        services.AddSingleton<IMessagePublisher, RabbitMqPublisher>();
 
         services.AddScoped<IOrganizationRepository, OrganizationRepository>();
         services.AddScoped<IUserRepository, UserRepository>();

@@ -1,0 +1,96 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-opsflow_db}
+      POSTGRES_USER: ${POSTGRES_USER:-opsflow_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-opsflow_password}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "${REDIS_HOST_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    restart: unless-stopped
+    environment:
+      # RabbitMQ's built-in guest account cannot connect from other containers.
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-opsflow}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-opsflow_local_dev_password}
+    ports:
+      - "${RABBITMQ_HOST_PORT:-5673}:5672"
+      - "${RABBITMQ_MANAGEMENT_HOST_PORT:-15673}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  api:
+    build:
+      context: .
+      dockerfile: OpsFlow.Api/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-opsflow_db};Username=${POSTGRES_USER:-opsflow_user};Password=${POSTGRES_PASSWORD:-opsflow_password};"
+      Redis__ConnectionString: redis:6379
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__Port: 5672
+      RabbitMq__UserName: ${RABBITMQ_USER:-opsflow}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-opsflow_local_dev_password}
+      # Local-development fallback only. Set JWT_SECRET_KEY outside development environments.
+      JwtSettings__SecretKey: ${JWT_SECRET_KEY:-OpsFlow-Local-Docker-Development-Key-Replace-For-Production}
+    ports:
+      - "${API_HOST_PORT:-5153}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      # The runtime image intentionally stays minimal; check that the API process is alive.
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  worker:
+    build:
+      context: .
+      dockerfile: OpsFlow.Worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__Port: 5672
+      RabbitMq__UserName: ${RABBITMQ_USER:-opsflow}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-opsflow_local_dev_password}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

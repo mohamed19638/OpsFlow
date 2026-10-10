@@ -1,0 +1,19 @@
+# Git and IDE metadata
+.git/
+.vs/
+.idea/
+
+# Build outputs
+**/bin/
+**/obj/
+
+# Local configuration and secrets
+.env
+.env.*
+**/appsettings.Local.json
+
+# User-specific files
+**/*.user
+**/*.suo
+Thumbs.db
+Desktop.ini

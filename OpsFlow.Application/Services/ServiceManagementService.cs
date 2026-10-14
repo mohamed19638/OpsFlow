@@ -33,7 +33,6 @@ public class ServiceManagementService : IServiceService
             .GetByOrganizationAsync(
                 organizationId,
                 cancellationToken);
-
         var result = services
             .Select(service => service.ToDto())
             .ToList();

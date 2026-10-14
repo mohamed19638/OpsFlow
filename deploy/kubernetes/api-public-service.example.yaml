@@ -1,0 +1,24 @@
+# Optional public entry point. Keep out of kustomization.yaml.
+# Before applying: replace the ACM certificate ARN and rotate/remove the
+# demo credentials seeded by OpsFlowDbSeeder in an application change.
+apiVersion: v1
+kind: Service
+metadata:
+  name: opsflow-api-public
+  namespace: opsflow
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-east-1:123456789012:certificate/REPLACE-ME
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: HTTP
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /api/health
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: opsflow-api
+  ports:
+    - name: https
+      port: 443
+      targetPort: http
+      protocol: TCP

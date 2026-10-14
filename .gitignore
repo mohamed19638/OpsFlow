@@ -14,6 +14,15 @@
 !.env.example
 appsettings.Local.json
 
+# Terraform state, provider cache, and local deployment secrets
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
+!terraform.tfvars.example
+deploy/kubernetes/secrets.env
+
 # OS files
 Thumbs.db
 Desktop.ini

@@ -78,6 +78,17 @@ services:
       retries: 10
       start_period: 30s
 
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${WEB_HOST_PORT:-5174}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
   worker:
     build:
       context: .

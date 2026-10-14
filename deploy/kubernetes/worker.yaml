@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opsflow-worker
+  namespace: opsflow
+  labels:
+    app.kubernetes.io/name: opsflow-worker
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opsflow-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: opsflow-worker
+    spec:
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        - name: wait-for-rabbitmq
+          image: busybox:1.36.1
+          command:
+            - sh
+            - -c
+            - until nc -z rabbitmq 5672; do echo 'waiting for RabbitMQ'; sleep 2; done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      containers:
+        - name: worker
+          # Replace this image with the Worker ECR URL and an immutable commit tag.
+          image: opsflow-worker:replace-before-deploy
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: opsflow-config
+          env:
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: opsflow-runtime-secrets
+                  key: RABBITMQ_USER
+            - name: RabbitMq__UserName
+              value: "$(RABBITMQ_USER)"
+            - name: RabbitMq__Password
+              valueFrom:
+                secretKeyRef:
+                  name: opsflow-runtime-secrets
+                  key: RABBITMQ_PASSWORD
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

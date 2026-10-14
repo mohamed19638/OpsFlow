@@ -1,0 +1,6 @@
+aws_region        = "us-east-1"
+project_name      = "opsflow"
+environment       = "demo"
+kubernetes_version = "1.35"
+vpc_cidr          = "10.40.0.0/16"
+cluster_admin_cidrs = ["203.0.113.10/32"] # Replace with your public IP before applying.

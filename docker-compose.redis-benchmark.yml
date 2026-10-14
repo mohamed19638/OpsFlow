@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: opsflow_redis_benchmark
+      POSTGRES_USER: opsflow_benchmark
+      POSTGRES_PASSWORD: opsflow_benchmark_local_only
+    ports:
+      - "127.0.0.1:15433:5432"
+    volumes:
+      - redis_benchmark_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:16380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+
+volumes:
+  redis_benchmark_postgres:

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opsflow-config
+  namespace: opsflow
+data:
+  ASPNETCORE_ENVIRONMENT: "Production"
+  ASPNETCORE_HTTP_PORTS: "8080"
+  POSTGRES_DB: "opsflow_db"
+  RabbitMq__HostName: "rabbitmq"
+  RabbitMq__Port: "5672"
+  RabbitMq__VirtualHost: "/"
+  RabbitMq__Exchange: "opsflow.events"
+  RabbitMq__Queue: "opsflow.notifications"
+  RabbitMq__DeadLetterExchange: "opsflow.events.dlx"
+  RabbitMq__DeadLetterQueue: "opsflow.notifications.dlq"
+  RabbitMq__MaxDeliveryAttempts: "3"
+  JwtSettings__Issuer: "OpsFlow"
+  JwtSettings__Audience: "OpsFlowClients"
+  JwtSettings__AccessTokenExpirationMinutes: "60"
+  JwtSettings__RefreshTokenExpirationDays: "7"

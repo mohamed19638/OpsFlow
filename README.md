@@ -14,6 +14,7 @@ OpsFlow is a multi-tenant incident management API built with ASP.NET Core. It mo
 - Redis-backed caching.
 - RabbitMQ event publishing, a separate background consumer, manual acknowledgements, bounded retries, and a dead-letter queue.
 - Audit records for important operations.
+- A small authenticated web dashboard for service health, incidents, and deployment history.
 
 ## Architecture
 
@@ -32,6 +33,8 @@ flowchart LR
 
 The API saves an incident or status change, then publishes a message to RabbitMQ. The Worker consumes the message separately from the HTTP request and logs a notification. If processing repeatedly fails, the message is routed to the dead-letter queue for inspection.
 
+AWS Kubernetes orchestration and Terraform deployment files are documented in [deploy/README.md](deploy/README.md).
+
 ## Solution layout
 
 | Project | Responsibility |
@@ -41,6 +44,7 @@ The API saves an incident or status change, then publishes a message to RabbitMQ
 | `OpsFlow.Infrastructure` | EF Core/PostgreSQL, repositories, authentication implementation, Redis, and RabbitMQ publisher. |
 | `OpsFlow.Api` | HTTP controllers, JWT authentication/authorization, Swagger, and startup database migration/seeding. |
 | `OpsFlow.Worker` | Background RabbitMQ consumer for incident notifications. |
+| `web/` | Static HTML/CSS/JavaScript dashboard served by Nginx and routed to the API through Docker Compose. |
 
 ## Requirements
 
@@ -64,6 +68,26 @@ $env:JwtSettings__SecretKey = "replace-with-a-random-secret-of-at-least-32-bytes
 The JWT secret must be at least 32 UTF-8 bytes. Keep real secrets in environment variables or a secret manager; do not commit them.
 
 ## Run locally
+
+The simplest way to explore the API and dashboard together is Docker Compose:
+
+```powershell
+docker compose up --build -d
+```
+
+Open the dashboard at [http://localhost:5174](http://localhost:5174). Sign in with the local development account below. The dashboard reads live service, incident, and deployment data from the API; select an incident to see its timeline and comments. The API's Swagger UI remains at [http://localhost:5153/swagger](http://localhost:5153/swagger).
+
+The dashboard is a small static HTML, CSS, and JavaScript app in `web/`. Nginx serves it and proxies `/api` requests to ASP.NET Core, so the browser talks to one origin. It is intentionally read-only; API write operations are available in Swagger.
+
+To stop the containers while keeping the local database volume:
+
+```powershell
+docker compose down
+```
+
+The dashboard stores its access token in tab-scoped `sessionStorage` and clears it when you sign out or the API returns `401`. It is a read-only portfolio UI; create and update workflows remain available through the API and Swagger.
+
+Alternatively, you can start the API and Worker directly using the steps below.
 
 1. Start PostgreSQL, Redis, and RabbitMQ.
 2. Set the connection string and JWT secret using the environment variables above. Adjust the Redis and RabbitMQ settings if needed.
@@ -123,3 +147,5 @@ The Worker keeps processed message IDs in memory. This prevents duplicate handli
 ## Verification
 
 The solution has been built successfully with `dotnet build OpsFlow.sln`. The API-to-Worker flow was also exercised locally for incident creation and status change, and a malformed message was verified to reach the dead-letter queue after the configured retries.
+
+The Redis A/B benchmark procedure, limitations, and captured run summaries are documented in [tests/OpsFlow.LoadTests/README.redis-ab.md](tests/OpsFlow.LoadTests/README.redis-ab.md). The sequential request samples and per-run load summaries are included under `tests/OpsFlow.LoadTests/results/2026-10-14/`; they are local measurements, not a production capacity claim.

@@ -56,6 +56,8 @@ h1 { margin: 7px 0 5px; font: 700 clamp(25px, 3vw, 33px) Manrope, sans-serif; le
 .date-pill { color: #647179; border: 1px solid var(--line); background: white; border-radius: 8px; padding: 9px 12px; font-size: 11px; }
 .button { border: 0; border-radius: 8px; background: var(--teal); color: white; padding: 10px 14px; font-size: 12px; font-weight: 700; box-shadow: 0 3px 8px #167a7022; }
 .button:hover { background: #106a62; }
+.button-secondary { color: #627178; background: white; border: 1px solid var(--line); box-shadow: none; }
+.button-secondary:hover { color: var(--ink); background: #f7f9f9; }
 .button:disabled { cursor: wait; opacity: .65; }
 .content { max-width: 1180px; margin: 0 auto; }
 .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
@@ -121,6 +123,19 @@ tr:last-child td { border-bottom: 0; }
 .field input:focus { border-color: #81b9b1; box-shadow: 0 0 0 3px #167a7012; }
 .login-submit { width: 100%; margin-top: 22px; padding: 12px; }
 .login-hint { margin-top: 17px; padding: 11px 12px; border-radius: 8px; background: #eff5f4; color: #627b77; font-size: 10px; line-height: 1.5; }
+.registration-panel { max-width: 720px; }
+.registration-form { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px; margin-top: 18px; }
+.registration-form .field { align-content: start; }
+.registration-form input, .registration-form select { width: 100%; padding: 12px; border: 1px solid #dfe6e8; border-radius: 8px; outline: none; color: var(--ink); background: white; font-size: 12px; }
+.registration-form input:focus, .registration-form select:focus { border-color: #81b9b1; box-shadow: 0 0 0 3px #167a7012; }
+.field-hint { color: #9aa5aa; font-size: 10px; }
+.register-submit { justify-self: start; align-self: end; margin-top: 15px; }
+.register-result { grid-column: 1 / -1; min-height: 18px; margin: 10px 0 0; font-size: 11px; }
+.register-result.success { color: var(--teal); }
+.register-result.error { color: var(--red); }
+.registration-note { display: flex; align-items: flex-start; gap: 10px; max-width: 720px; margin-top: 14px; padding: 14px 16px; border: 1px solid #e9eeee; border-radius: 10px; color: #78858c; background: #fafcfc; font-size: 10px; line-height: 1.6; }
+.registration-note .dot { flex: 0 0 auto; margin-top: 4px; }
+.registration-note code { color: #4e6a68; font-size: 10px; }
 .form-error, .notice { margin: 13px 0 0; color: var(--red); font-size: 11px; line-height: 1.5; }
 .notice { color: var(--muted); }
 .detail-dialog { position: fixed; inset: 0 0 0 auto; width: min(500px, 100%); height: 100%; max-height: none; margin: 0; padding: 30px; border: 0; box-shadow: -20px 0 60px #13282b20; }
@@ -162,6 +177,8 @@ tr:last-child td { border-bottom: 0; }
   .stat-card { min-height: 108px; padding: 13px; }
   .stat-value { font-size: 23px; }
   .panel { padding: 15px; }
+  .registration-form { grid-template-columns: 1fr; }
+  .register-submit { justify-self: stretch; }
   .login-wrap { display: block; background: #fbfcfc; }
   .login-story { min-height: 235px; padding: 24px; }
   .story-copy { margin: 36px 0 6px; }

@@ -16,7 +16,7 @@ const state = {
   loading: false,
 };
 
-const icons = { overview: "⌂", services: "◈", incidents: "◉", deployments: "↗" };
+const icons = { overview: "⌂", services: "◈", incidents: "◉", deployments: "↗", users: "+" };
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -88,7 +88,7 @@ function showLogin(message = "") {
           <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required></div>
           <button class="button login-submit" type="submit">Sign in <span aria-hidden="true">→</span></button>
           ${message ? `<p class="form-error" role="alert">${escapeHtml(message)}</p>` : ""}
-          <div class="login-hint">Demo credentials are seeded only into a fresh local development database. Never use these accounts in a public deployment.</div>
+          <div class="login-hint">Demo credentials are seeded only into a fresh local development database. New accounts are created by an Admin after sign in. Never use these accounts in a public deployment.</div>
         </form>
       </div>
     </section>`;
@@ -173,7 +173,10 @@ function dateLabel(value, withTime = false) {
 
 function renderShell() {
   if (!state.token) return showLogin();
-  const pageTitle = { overview: "Operations overview", services: "Services", incidents: "Incidents", deployments: "Deployments" }[state.page];
+  const isAdmin = String(state.user?.role).toLowerCase() === "admin";
+  if (state.page === "users" && !isAdmin) state.page = "overview";
+  const pageTitle = { overview: "Operations overview", services: "Services", incidents: "Incidents", deployments: "Deployments", users: "Team access" }[state.page];
+  const pages = ["overview", "services", "incidents", "deployments", ...(isAdmin ? ["users"] : [])];
   const name = state.user ? `${state.user.firstName} ${state.user.lastName}` : "Loading profile…";
   const initials = state.user ? `${state.user.firstName?.[0] ?? "O"}${state.user.lastName?.[0] ?? ""}` : "O";
   app.innerHTML = `
@@ -182,7 +185,7 @@ function renderShell() {
         <div class="brand"><span class="brand-mark">O</span><div class="brand-copy"><span class="brand-name">OpsFlow</span><span class="brand-caption">Operations workspace</span></div></div>
         <div class="nav-label">Workspace</div>
         <nav class="nav-list" aria-label="Main navigation">
-          ${["overview", "services", "incidents", "deployments"].map((page) => `<button class="nav-item ${state.page === page ? "active" : ""}" data-page="${page}"><span class="nav-icon">${icons[page]}</span><span class="nav-text">${page[0].toUpperCase()}${page.slice(1)}</span></button>`).join("")}
+          ${pages.map((page) => `<button class="nav-item ${state.page === page ? "active" : ""}" data-page="${page}"><span class="nav-icon">${icons[page]}</span><span class="nav-text">${page === "users" ? "Team access" : page[0].toUpperCase() + page.slice(1)}</span></button>`).join("")}
         </nav>
         <div class="sidebar-bottom">
           <div class="connection"><span class="dot"></span><span>API connected</span></div>
@@ -192,7 +195,7 @@ function renderShell() {
       <section class="main">
         <header class="topbar">
           <div><div class="eyebrow">OpsFlow / Workspace</div><h1>${pageTitle}</h1><p class="subtitle">A clear view of the systems your team is looking after.</p></div>
-          <div class="top-actions"><span class="date-pill">${dateLabel(new Date())}</span><button class="button" id="refresh" ${state.loading ? "disabled" : ""}>${state.loading ? "Loading…" : "↻ &nbsp;Refresh"}</button></div>
+          <div class="top-actions"><span class="date-pill">${dateLabel(new Date())}</span><button class="button button-secondary" id="logout-top">Sign out</button><button class="button" id="refresh" ${state.loading ? "disabled" : ""}>${state.loading ? "Loading…" : "↻ &nbsp;Refresh"}</button></div>
         </header>
         <div class="content" id="content">${state.loading ? `<div class="panel empty">Loading your organization…</div>` : renderPage()}</div>
       </section>
@@ -204,6 +207,7 @@ function renderShell() {
   }));
   document.querySelector("#refresh")?.addEventListener("click", loadWorkspace);
   document.querySelector("#logout")?.addEventListener("click", () => signOut());
+  document.querySelector("#logout-top")?.addEventListener("click", () => signOut());
   document.querySelector("#search")?.addEventListener("input", (event) => {
     state.search = event.target.value;
     const selection = event.target.selectionStart;
@@ -213,9 +217,11 @@ function renderShell() {
     next?.setSelectionRange(selection, selection);
   });
   document.querySelectorAll("[data-incident-id]").forEach((button) => button.addEventListener("click", () => openIncident(button.dataset.incidentId)));
+  document.querySelector("#register-form")?.addEventListener("submit", registerUser);
 }
 
 function renderPage() {
+  if (state.page === "users") return renderUserRegistration();
   if (state.page === "services") return renderList("services");
   if (state.page === "incidents") return renderList("incidents");
   if (state.page === "deployments") return renderList("deployments");
@@ -237,6 +243,55 @@ function renderPage() {
       <div class="panel"><div class="panel-heading"><h2>Recent deployments</h2><button class="text-button" data-go="deployments">View all →</button></div>${deploymentTable([...state.deployments].sort((a, b) => new Date(b.deployedAt) - new Date(a.deployedAt)).slice(0, 5))}</div>
       <div class="panel"><div class="panel-heading"><h2>About this workspace</h2></div><p class="subtitle">This view reads live data from the OpsFlow API after authentication. It brings together service health, incident activity, and deployment history.</p><div class="connection" style="margin-top:18px"><span class="dot"></span><span>Signed in as ${escapeHtml(state.user?.role ?? "user")}</span></div></div>
     </section>`;
+}
+
+function renderUserRegistration() {
+  return `<section class="panel registration-panel">
+    <div class="panel-heading"><h2>Create a team account</h2><span class="badge good">Admin only</span></div>
+    <p class="subtitle">The new user will belong to your current organization. OpsFlow does not allow public self-registration.</p>
+    <form id="register-form" class="registration-form">
+      <div class="field"><label for="new-name">Full name</label><input id="new-name" name="fullName" autocomplete="name" placeholder="e.g. Sara Khalil" required></div>
+      <div class="field"><label for="new-email">Email address</label><input id="new-email" name="email" type="email" autocomplete="email" placeholder="name@company.com" required></div>
+      <div class="field"><label for="new-password">Temporary password</label><input id="new-password" name="password" type="password" autocomplete="new-password" minlength="8" required><span class="field-hint">Give the new teammate their password securely.</span></div>
+      <div class="field"><label for="new-role">Role</label><select id="new-role" name="role" required><option value="Engineer">Engineer</option><option value="TeamLead">Team Lead</option><option value="Viewer">Viewer</option><option value="Admin">Admin</option></select></div>
+      <button class="button register-submit" type="submit">Create account <span aria-hidden="true">→</span></button>
+      <p class="register-result" id="register-result" aria-live="polite"></p>
+    </form>
+  </section>
+  <section class="registration-note"><span class="dot"></span><span>Registration uses <code>POST /api/auth/register</code>. The API checks your Admin role and takes the organization ID from your signed-in token.</span></section>`;
+}
+
+async function registerUser(event) {
+  event.preventDefault();
+  const formElement = event.currentTarget;
+  const form = new FormData(formElement);
+  const button = formElement.querySelector("button[type=submit]");
+  const result = document.querySelector("#register-result");
+  button.disabled = true;
+  button.textContent = "Creating account…";
+  result.textContent = "";
+  result.className = "register-result";
+  try {
+    const user = await request("/auth/register", {
+      method: "POST",
+      body: JSON.stringify({
+        fullName: form.get("fullName"),
+        email: form.get("email"),
+        password: form.get("password"),
+        role: form.get("role"),
+        organizationId: state.organizationId,
+      }),
+    });
+    formElement.reset();
+    result.textContent = `${user.firstName} ${user.lastName} was added as ${user.role}.`;
+    result.classList.add("success");
+  } catch (error) {
+    result.textContent = error.message || "Could not create the account.";
+    result.classList.add("error");
+  } finally {
+    button.disabled = false;
+    button.innerHTML = 'Create account <span aria-hidden="true">→</span>';
+  }
 }
 
 function stat(label, value, note, icon, mood = "") {

@@ -75,7 +75,7 @@ The simplest way to explore the API and dashboard together is Docker Compose:
 docker compose up --build -d
 ```
 
-Open the dashboard at [http://localhost:5174](http://localhost:5174). Sign in with the local development account below. The dashboard reads live service, incident, and deployment data from the API; select an incident to see its timeline and comments. The API's Swagger UI remains at [http://localhost:5153/swagger](http://localhost:5153/swagger).
+Open the dashboard at [http://localhost:5174](http://localhost:5174). Sign in with the local development account below. The dashboard reads live service, incident, and deployment data from the API; select an incident to see its timeline and comments. Admins also get a Team Access page to register users in their organization. There is no public self-registration: `POST /api/auth/register` requires an authenticated Admin. The API's Swagger UI remains at [http://localhost:5153/swagger](http://localhost:5153/swagger).
 
 The dashboard is a small static HTML, CSS, and JavaScript app in `web/`. Nginx serves it and proxies `/api` requests to ASP.NET Core, so the browser talks to one origin. It is intentionally read-only; API write operations are available in Swagger.
 
@@ -85,7 +85,7 @@ To stop the containers while keeping the local database volume:
 docker compose down
 ```
 
-The dashboard stores its access token in tab-scoped `sessionStorage` and clears it when you sign out or the API returns `401`. It is a read-only portfolio UI; create and update workflows remain available through the API and Swagger.
+The dashboard stores its access token in tab-scoped `sessionStorage` and clears it when you sign out or the API returns `401`. Service, incident, and deployment views are read-only; user registration is available to Admins, while other create and update workflows remain available through the API and Swagger.
 
 Alternatively, you can start the API and Worker directly using the steps below.
 

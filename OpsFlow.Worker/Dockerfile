@@ -18,5 +18,10 @@ RUN dotnet publish OpsFlow.Worker/OpsFlow.Worker.csproj \
 FROM mcr.microsoft.com/dotnet/runtime:8.0 AS final
 WORKDIR /app
 
+# Apply current Debian security updates to the runtime image packages.
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "OpsFlow.Worker.dll"]

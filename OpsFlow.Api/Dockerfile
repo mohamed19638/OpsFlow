@@ -18,6 +18,11 @@ RUN dotnet publish OpsFlow.Api/OpsFlow.Api.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
+# Apply current Debian security updates to the runtime image packages.
+RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV ASPNETCORE_HTTP_PORTS=8080
 EXPOSE 8080
 

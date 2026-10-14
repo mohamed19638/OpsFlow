@@ -81,6 +81,31 @@ public sealed class AuthService : IAuthService
         return user.ToDto();
     }
 
+    public async Task<UserDto> RegisterSelfAsync(
+        SelfRegisterDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(dto);
+
+        var organizations = await _unitOfWork.Organizations.GetAllAsync(cancellationToken);
+        if (organizations.Count != 1)
+        {
+            throw new InvalidOperationException(
+                "Self-registration is available only when exactly one organization exists. Ask an Admin to create your account.");
+        }
+
+        return await RegisterAsync(
+            new RegisterDto
+            {
+                Email = dto.Email,
+                Password = dto.Password,
+                FullName = dto.FullName,
+                Role = UserRole.Engineer.ToString(),
+                OrganizationId = organizations[0].Id
+            },
+            cancellationToken);
+    }
+
     public async Task<TokenDto> LoginAsync(
         LoginDto dto,
         CancellationToken cancellationToken = default)

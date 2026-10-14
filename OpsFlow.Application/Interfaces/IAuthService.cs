@@ -9,6 +9,10 @@ public interface IAuthService
         RegisterDto dto,
         CancellationToken cancellationToken = default);
 
+    Task<UserDto> RegisterSelfAsync(
+        SelfRegisterDto dto,
+        CancellationToken cancellationToken = default);
+
     Task<TokenDto> LoginAsync(
         LoginDto dto,
         CancellationToken cancellationToken = default);

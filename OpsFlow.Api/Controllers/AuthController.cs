@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using OpsFlow.Application.Constants;
 using OpsFlow.Application.DTOs.Auth;
@@ -13,10 +14,17 @@ namespace OpsFlow.API.Controllers;
 public sealed class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IWebHostEnvironment _environment;
+    private readonly IConfiguration _configuration;
 
-    public AuthController(IAuthService authService)
+    public AuthController(
+        IAuthService authService,
+        IWebHostEnvironment environment,
+        IConfiguration configuration)
     {
         _authService = authService;
+        _environment = environment;
+        _configuration = configuration;
     }
 
     [HttpPost("register")]
@@ -36,6 +44,29 @@ public sealed class AuthController : ControllerBase
             controllerName: "Users",
             routeValues: new { id = user.Id },
             value: user);
+    }
+
+    [HttpPost("self-register")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(UserDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<UserDto>> SelfRegister(
+        SelfRegisterDto dto,
+        CancellationToken cancellationToken)
+    {
+        if (!_environment.IsDevelopment() ||
+            !_configuration.GetValue<bool>("PublicRegistration:Enabled"))
+        {
+            return NotFound(new ProblemDetails
+            {
+                Status = StatusCodes.Status404NotFound,
+                Detail = "Self-registration is disabled. Ask an Admin to create your account."
+            });
+        }
+
+        var user = await _authService.RegisterSelfAsync(dto, cancellationToken);
+        return StatusCode(StatusCodes.Status201Created, user);
     }
 
     [HttpPost("login")]

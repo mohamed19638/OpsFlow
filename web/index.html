@@ -3,11 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f4f6f8" />
-    <title>OpsFlow — Operations overview</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <meta name="theme-color" content="#f4f7f8" />
+    <meta name="description" content="OpsFlow operations workspace for services, incidents, and deployments." />
+    <title>OpsFlow — Operations workspace</title>
     <link rel="stylesheet" href="/styles.css" />
     <script src="/app.js" defer></script>
   </head>
@@ -15,8 +13,11 @@
     <main id="app" aria-live="polite">
       <section class="loading-screen"><span class="brand-mark">O</span><p>Starting OpsFlow…</p></section>
     </main>
-    <dialog id="detail-dialog" class="detail-dialog">
-      <form method="dialog"><button class="dialog-close" aria-label="Close">×</button></form>
+    <dialog id="detail-dialog" class="detail-dialog" aria-labelledby="dialog-title">
+      <div class="dialog-head">
+        <div><span class="eyebrow">OpsFlow record</span><h2 id="dialog-title">Details</h2></div>
+        <button class="dialog-close" type="button" data-action="close-dialog" aria-label="Close">×</button>
+      </div>
       <div id="detail-content"></div>
     </dialog>
   </body>

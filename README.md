@@ -14,7 +14,7 @@ OpsFlow is a multi-tenant incident management API built with ASP.NET Core. It mo
 - Redis-backed caching.
 - RabbitMQ event publishing, a separate background consumer, manual acknowledgements, bounded retries, and a dead-letter queue.
 - Audit records for important operations.
-- A small authenticated web dashboard for service health, incidents, and deployment history.
+- An authenticated operations UI for organizations, teams, services, incidents, deployments, users, and audit history, plus an API Explorer that mirrors the controller routes.
 
 ## Architecture
 
@@ -75,9 +75,9 @@ The simplest way to explore the API and dashboard together is Docker Compose:
 docker compose up --build -d
 ```
 
-Open the dashboard at [http://localhost:5174](http://localhost:5174). Sign in with the local development account below. The dashboard reads live service, incident, and deployment data from the API; select an incident to see its timeline and comments. Admins also get a Team Access page to register users in their organization. There is no public self-registration: `POST /api/auth/register` requires an authenticated Admin. The API's Swagger UI remains at [http://localhost:5153/swagger](http://localhost:5153/swagger).
+Open the dashboard at [http://localhost:5174](http://localhost:5174). In local Development, you can sign in with the seeded administrator below or choose **Create an account** on the sign-in page. Self-registration assigns the `Engineer` role and joins the account to the only organization in the database; it is disabled outside Development and refuses to run when multiple organizations exist. The separate `POST /api/auth/register` endpoint remains Admin-only and can assign roles while creating an account from **Users & access**. The dashboard reads live data from the API and includes organization, team, service, incident, deployment, user-access, and audit-log screens. Depending on the signed-in role, it exposes the write actions allowed by the API: create and edit resources, update statuses, manage team members, and run incident lifecycle actions. Open a row to request its detail endpoint; the API Explorer lists the controller routes, role labels, example bodies, and lets you send a request with the current access token. There is no `Instance` API resource: the individual records are Incidents or Deployments. The API's Swagger UI remains at [http://localhost:5153/swagger](http://localhost:5153/swagger).
 
-The dashboard is a small static HTML, CSS, and JavaScript app in `web/`. Nginx serves it and proxies `/api` requests to ASP.NET Core, so the browser talks to one origin. It is intentionally read-only; API write operations are available in Swagger.
+The dashboard is a static HTML, CSS, and JavaScript app in `web/`. Nginx serves it and proxies `/api` requests to ASP.NET Core, so the browser talks to one origin. Its forms are a client for existing API routes; validation, tenant scoping, incident state transitions, and authorization remain enforced by the backend. The API Explorer is useful for routes that do not have a dedicated form.
 
 To stop the containers while keeping the local database volume:
 
@@ -85,7 +85,15 @@ To stop the containers while keeping the local database volume:
 docker compose down
 ```
 
-The dashboard stores its access token in tab-scoped `sessionStorage` and clears it when you sign out or the API returns `401`. Service, incident, and deployment views are read-only; user registration is available to Admins, while other create and update workflows remain available through the API and Swagger.
+The dashboard stores access and refresh tokens in tab-scoped `sessionStorage`. **Sign out / switch account** attempts to revoke the refresh token, clears the browser session, and returns to sign-in. The frontend hides controls that the current role should not use, but the backend is the security boundary and may still return `401`, `403`, or a business-rule validation error. Public self-registration is enabled only by `OpsFlow.Api/appsettings.Development.json`; the base configuration disables it. Do not run the API in Development or enable self-registration on a public deployment.
+
+To refresh the static frontend after changing files under `web/`, rebuild and recreate the web container:
+
+```powershell
+docker compose up --build -d web
+```
+
+For a public demo, the static web container needs a reachable API and a real deployment environment. The current Kubernetes bundle deploys the API, Worker, PostgreSQL, Redis, and RabbitMQ; it does not include the web container by default. The optional public-service example exposes the API only. Add a web Deployment/Service and a TLS ingress or serve the frontend from a static host that proxies `/api` to the API. Before exposing anything publicly, replace development secrets and remove/change the seeded demo accounts; the seeder contains known credentials. See [deploy/README.md](deploy/README.md) for the current infrastructure limits and deployment sequence. Do not publish the local Compose credentials or expose its development setup as-is.
 
 Alternatively, you can start the API and Worker directly using the steps below.
 

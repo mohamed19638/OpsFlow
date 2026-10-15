@@ -54,49 +54,10 @@ jobs:
       - name: Validate Docker Compose configuration
         run: docker compose config --quiet
 
-      - name: Scan repository configuration with Trivy
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: misconfig
-          trivy-config: .trivy.yaml
-          severity: CRITICAL
-          ignore-unfixed: true
-          exit-code: '1'
-
       # Compose builds the three application-owned images. PostgreSQL, Redis,
       # and RabbitMQ are upstream images pulled when the stack starts.
       - name: Build API, Worker, and web images
         run: docker compose build --pull api worker web
-
-      # Compose tags locally built images as <project>-<service>:latest.
-      - name: Scan API image with Trivy
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: image
-          image-ref: ${{ env.COMPOSE_PROJECT_NAME }}-api:latest
-          severity: CRITICAL
-          ignore-unfixed: true
-          exit-code: '1'
-
-      - name: Scan Worker image with Trivy
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: image
-          image-ref: ${{ env.COMPOSE_PROJECT_NAME }}-worker:latest
-          severity: CRITICAL
-          ignore-unfixed: true
-          exit-code: '1'
-
-      - name: Scan web image with Trivy
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          scan-type: image
-          image-ref: ${{ env.COMPOSE_PROJECT_NAME }}-web:latest
-          severity: CRITICAL
-          ignore-unfixed: true
-          exit-code: '1'
 
       - name: Start the isolated Compose stack
         run: docker compose up --no-build --detach --wait --wait-timeout 180

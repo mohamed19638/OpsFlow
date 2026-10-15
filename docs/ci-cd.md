@@ -7,7 +7,7 @@ The GitHub Actions workflow is `.github/workflows/ci.yml`. It runs on pushes to 
 1. Restores and tests every project included in `OpsFlow.sln`.
 2. Separately restores and builds `tests/OpsFlow.RedisBenchmarkHost`, a .NET project in the repository that is not included in the solution.
 3. Validates the root Docker Compose configuration.
-4. Builds the API, Worker, and web images from the Dockerfiles referenced by Compose, then scans those three images with Trivy for Critical vulnerabilities that have a fix available.
+4. Builds the API, Worker, and web images from the Dockerfiles referenced by Compose.
 5. Starts the complete Compose stack on a uniquely named, disposable GitHub-hosted runner. It checks the API health endpoint, the web page, and that the Worker begins consuming from RabbitMQ.
 6. Removes that run's Compose containers, network, and PostgreSQL volume in an unconditional cleanup step.
 
@@ -16,8 +16,9 @@ The API and Worker Dockerfiles live in their respective project folders because 
 ## What it does not do
 
 - It does not use AWS, publish to ECR or GHCR, or deploy to Kubernetes or another hosting service.
+- It does not scan source or container images for known security vulnerabilities.
 - A successful workflow means the code and Compose stack passed these checks on GitHub's runner. It does not mean OpsFlow is hosted online.
-- It does not run k6 load tests or scan the upstream PostgreSQL, Redis, and RabbitMQ images. The image vulnerability gate is limited to Critical findings and ignores findings without an available fix.
+- It does not run k6 load tests or scan the upstream PostgreSQL, Redis, and RabbitMQ images.
 
 There is no configured delivery destination in the current project, so the workflow is scoped as CI. Publishing images requires choosing and configuring a registry separately.
 

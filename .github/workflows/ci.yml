@@ -1,0 +1,132 @@
+name: OpsFlow CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: opsflow-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test .NET projects
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore solution dependencies
+        run: dotnet restore OpsFlow.sln
+
+      - name: Build and run solution tests
+        run: dotnet test OpsFlow.sln --no-restore --configuration Release
+
+      # This project is intentionally not included in OpsFlow.sln.
+      - name: Restore Redis benchmark host dependencies
+        run: dotnet restore tests/OpsFlow.RedisBenchmarkHost/OpsFlow.RedisBenchmarkHost.csproj
+
+      - name: Build Redis benchmark host
+        run: dotnet build tests/OpsFlow.RedisBenchmarkHost/OpsFlow.RedisBenchmarkHost.csproj --no-restore --configuration Release
+
+  compose-smoke:
+    name: Build, scan, and smoke-test the Compose stack
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    env:
+      # A unique project name keeps this run's containers, network, and volume
+      # separate from any other Compose project on the runner.
+      COMPOSE_PROJECT_NAME: opsflow-ci-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Compose configuration
+        run: docker compose config --quiet
+
+      - name: Scan repository configuration with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: misconfig
+          trivy-config: .trivy.yaml
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      # Compose builds the three application-owned images. PostgreSQL, Redis,
+      # and RabbitMQ are upstream images pulled when the stack starts.
+      - name: Build API, Worker, and web images
+        run: docker compose build --pull api worker web
+
+      # Compose tags locally built images as <project>-<service>:latest.
+      - name: Scan API image with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.COMPOSE_PROJECT_NAME }}-api:latest
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Scan Worker image with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.COMPOSE_PROJECT_NAME }}-worker:latest
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Scan web image with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ env.COMPOSE_PROJECT_NAME }}-web:latest
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Start the isolated Compose stack
+        run: docker compose up --no-build --detach --wait --wait-timeout 180
+
+      - name: Check API health endpoint
+        run: curl --fail --retry 15 --retry-connrefused --retry-delay 2 http://localhost:5153/api/health
+
+      - name: Check web page
+        run: curl --fail --retry 10 --retry-connrefused --retry-delay 2 http://localhost:5174/ | grep -q '<title>OpsFlow'
+
+      - name: Check Worker connected to RabbitMQ
+        shell: bash
+        run: |
+          for attempt in {1..20}; do
+            if docker compose logs --no-color worker | grep -Fq "Consuming RabbitMQ queue"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs --no-color worker
+          echo "Worker did not report that it started consuming the RabbitMQ queue."
+          exit 1
+
+      - name: Show Compose logs after a failure
+        if: failure()
+        continue-on-error: true
+        run: docker compose logs --no-color
+
+      # This runs only on the disposable GitHub-hosted runner. It removes the
+      # unique CI project and its test database volume, never a developer DB.
+      - name: Stop and clean up the isolated Compose stack
+        if: always()
+        run: docker compose down --volumes --remove-orphans

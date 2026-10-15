@@ -1,27 +1,34 @@
-# CI/CD pipeline
+# OpsFlow CI
 
-The GitHub Actions workflow at `.github/workflows/ci-cd.yml` runs on pushes to `main` and `master`, pull requests, and manual dispatches.
+The GitHub Actions workflow is `.github/workflows/ci.yml`. It runs on pushes to `main` or `master`, pull requests, and manual dispatches.
 
-## What it does
+## What it checks
 
-1. Restores the solution, then builds and runs its tests on .NET 8.
-2. Scans the repository's dependencies and configuration with Trivy. Unfixed Critical findings are ignored; other Critical findings fail the workflow.
-3. Builds the API and Worker Docker images and scans both images for Critical vulnerabilities.
-4. On a push to `main` only, authenticates to AWS through GitHub OIDC and publishes both images to ECR. Images receive the commit SHA tag and the `latest` tag.
+1. Restores and tests every project included in `OpsFlow.sln`.
+2. Separately restores and builds `tests/OpsFlow.RedisBenchmarkHost`, a .NET project in the repository that is not included in the solution.
+3. Validates the root Docker Compose configuration.
+4. Builds the API, Worker, and web images from the Dockerfiles referenced by Compose, then scans those three images with Trivy for Critical vulnerabilities that have a fix available.
+5. Starts the complete Compose stack on a uniquely named, disposable GitHub-hosted runner. It checks the API health endpoint, the web page, and that the Worker begins consuming from RabbitMQ.
+6. Removes that run's Compose containers, network, and PostgreSQL volume in an unconditional cleanup step.
 
-The ECR publish job intentionally does not run on pull requests, manual dispatch, or `master` pushes. The repository currently uses `master`, so the first three jobs can run there; ECR publishing starts after the deployment branch is `main` and AWS is configured.
+The API and Worker Dockerfiles live in their respective project folders because each describes how to package one application. The root `docker-compose.yml` is the local stack definition: it builds API, Worker, and web; it pulls PostgreSQL, Redis, and RabbitMQ images; and it connects all six services on the Compose network.
 
-## Configure AWS ECR publishing
+## What it does not do
 
-Create two ECR repositories, one for the API and one for the Worker. Configure GitHub repository **Actions variables** (Settings → Secrets and variables → Actions → Variables):
+- It does not use AWS, publish to ECR or GHCR, or deploy to Kubernetes or another hosting service.
+- A successful workflow means the code and Compose stack passed these checks on GitHub's runner. It does not mean OpsFlow is hosted online.
+- It does not run k6 load tests or scan the upstream PostgreSQL, Redis, and RabbitMQ images. The image vulnerability gate is limited to Critical findings and ignores findings without an available fix.
 
-| Variable | Value |
-| --- | --- |
-| `AWS_REGION` | AWS region containing the ECR repositories, such as `eu-west-1` |
-| `AWS_ROLE_TO_ASSUME` | ARN of an IAM role configured for GitHub OIDC |
-| `ECR_REPOSITORY_API` | ECR repository name for the API image |
-| `ECR_REPOSITORY_WORKER` | ECR repository name for the Worker image |
+There is no configured delivery destination in the current project, so the workflow is scoped as CI. Publishing images requires choosing and configuring a registry separately.
 
-The IAM role trust policy should use the GitHub OIDC provider, audience `sts.amazonaws.com`, and restrict the subject to this repository's `main` branch (`repo:mohamed19638/OpsFlow:ref:refs/heads/main`). Give the role only the ECR permissions required to obtain an authorization token and push image layers/manifests to the two repositories. Do not add AWS access keys to GitHub; OIDC issues short-lived credentials for the job. See [GitHub's AWS OIDC guide](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws).
+## Run the stack locally
 
-The workflow reports a clear error if an ECR variable is missing when the `main` publish job runs. AWS role trust, IAM permissions, and repository names still need to be configured in AWS/GitHub before the first image can publish.
+From the repository root:
+
+```powershell
+docker compose up --build
+```
+
+Compose exposes the web UI at `http://localhost:5174`, the API at `http://localhost:5153`, PostgreSQL at host port `5433`, Redis at `6380`, and RabbitMQ at `5673` (management UI at `15673`). Containers use Compose service names such as `postgres`, `redis`, `rabbitmq`, and `api` to connect to each other.
+
+The normal local PostgreSQL data is stored in the named volume `postgres_data`. `docker compose down` keeps that volume; `docker compose down --volumes` deletes it. The CI cleanup uses a unique Compose project name on a disposable GitHub runner, so it does not target a developer's local database.

@@ -40,7 +40,7 @@ jobs:
         run: dotnet build tests/OpsFlow.RedisBenchmarkHost/OpsFlow.RedisBenchmarkHost.csproj --no-restore --configuration Release
 
   compose-smoke:
-    name: Build, scan, and smoke-test the Compose stack
+    name: Build and smoke-test the Compose stack
     needs: build-and-test
     runs-on: ubuntu-latest
     env:
